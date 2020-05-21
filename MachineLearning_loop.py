@@ -123,6 +123,24 @@ from sklearn.preprocessing import StandardScaler
 scaler  = StandardScaler()
 scaler.fit(X_train_all)
 
+from sklearn.metrics import roc_auc_score, accuracy_score, precision_score, recall_score
+def calc_specificity(y_actual, y_pred, thresh):
+    # calculates specificity
+    return sum((y_pred < thresh) & (y_actual == 0)) /sum(y_actual ==0)
+
+def print_report(y_actual, y_pred, thresh):
+    
+
+    accuracy = accuracy_score(y_actual, (y_pred > thresh))
+
+    print('accuracy:%.3f'%accuracy)
+
+    print(' ')
+    return accuracy
+thresh = 0.5
+
+
+
 def fill_my_missing(df, df_mean, col2use):
     # This function fills the missing values
 
@@ -162,33 +180,68 @@ X_train_tf = scaler.transform(X_train)
 X_valid_tf = scaler.transform(X_valid)
 X_test_tf = scaler.transform(X_test)
 
-simNumTrain=[]
-simNumValid=[]
-simNumTest=[]
+import warnings
+warnings.filterwarnings('ignore')
 
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 
-for idx in range(10):
-    model = Sequential()
+lr_train_accuracy=[0]*50
+lr_valid_accuracy=[0]*50
+lr_test_accuracy=[0]*50
+tree_train_accuracy=[0]*50
+tree_valid_accuracy=[0]*50
+tree_test_accuracy=[0]*50
+rf_train_accuracy=[0]*50
+rf_valid_accuracy=[0]*50
+rf_test_accuracy=[0]*50
+for idx in range(50):
+    lr=LogisticRegression(random_state = idx)
+    lr.fit(X_train_tf, y_train)
 
-    # model.add(Dense(128, input_dim=16, activation='relu'))
-    model.add(Dense(64, input_dim=17, activation='relu'))
-    model.add(Dense(32, activation='relu'))
-    model.add(Dense(16, activation='relu'))
-    model.add(Dense(8, activation='relu'))
-    model.add(Dense(1, activation='sigmoid'))
-    model.summary()
+    y_train_preds = lr.predict_proba(X_train_tf)[:,1]
+    y_valid_preds = lr.predict_proba(X_valid_tf)[:,1]
+    y_test_preds = lr.predict_proba(X_test_tf)[:,1]
 
-    model.compile(loss = 'binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-    ex = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=5)
+    print('Logistic Regression')
+    print('Training:')
+    lr_train_accuracy[idx] = print_report(y_train,y_train_preds, thresh)
+    print('Validation:')
+    lr_valid_accuracy[idx] = print_report(y_valid,y_valid_preds, thresh)
+    print('Test:')
+    lr_test_accuracy[idx] = print_report(y_test,y_test_preds, thresh)
 
-    history = model.fit(X_train_tf, y_train, epochs=20, batch_size=32, validation_data=(X_test_tf, y_test), callbacks=[ex])
+    tree = DecisionTreeClassifier(max_depth = 10, random_state = idx)
+    tree.fit(X_train_tf, y_train)
 
-    print('train_evaluate-->',model.evaluate(X_train_tf, y_train)[1])
-    print('valid_evaluate-->',model.evaluate(X_valid_tf, y_valid)[1])
-    print('test_evaluate-->',model.evaluate(X_test_tf, y_test)[1])
+    y_train_preds = tree.predict_proba(X_train_tf)[:,1]
+    y_valid_preds = tree.predict_proba(X_valid_tf)[:,1]
+    y_test_preds = tree.predict_proba(X_test_tf)[:,1]
 
-    simNumTrain.append(model.evaluate(X_train_tf, y_train)[1])
-    simNumValid.append(model.evaluate(X_valid_tf, y_valid)[1])
-    simNumTest.append(model.evaluate(X_test_tf, y_test)[1])
+    print('Decision Tree')
+    print('Training:')
+    tree_train_accuracy[idx] =print_report(y_train,y_train_preds, thresh)
+    print('Validation:')
+    tree_valid_accuracy[idx] = print_report(y_valid,y_valid_preds, thresh)
+    print('Testing:')
+    tree_test_accuracy[idx] = print_report(y_test,y_test_preds, thresh)
 
-print(np.mean(simNumTrain), np.mean(simNumValid), np.mean(simNumTest))
+    rf=RandomForestClassifier(max_depth = 6, random_state = idx)
+    rf.fit(X_train_tf, y_train)
+
+    y_train_preds = rf.predict_proba(X_train_tf)[:,1]
+    y_valid_preds = rf.predict_proba(X_valid_tf)[:,1]
+    y_test_preds = rf.predict_proba(X_test_tf)[:,1]
+
+    print('Random Forest')
+    print('Training:')
+    rf_train_accuracy[idx] =print_report(y_train,y_train_preds, thresh)
+    print('Validation:')
+    rf_valid_accuracy[idx] = print_report(y_valid,y_valid_preds, thresh)
+    print('Testing:')
+    rf_test_accuracy[idx] = print_report(y_test,y_test_preds, thresh)
+
+print('train: ', np.mean(lr_train_accuracy), np.mean(tree_train_accuracy), np.mean(rf_train_accuracy))
+print('valid: ', np.mean(lr_valid_accuracy), np.mean(tree_valid_accuracy), np.mean(rf_valid_accuracy))
+print('test: ', np.mean(lr_test_accuracy), np.mean(tree_test_accuracy), np.mean(rf_test_accuracy))
